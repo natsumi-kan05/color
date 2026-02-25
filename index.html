@@ -30,7 +30,7 @@
         padding: 12px;
         border: 1px solid #ccc;
         border-radius: 8px;
-        font-size: 16px; /* スマホでの自動ズーム防止 */
+        font-size: 16px; 
         line-height: 1.6;
     }
     textarea {
@@ -38,8 +38,6 @@
         resize: vertical;
         background-color: #fff;
     }
-    
-    /* エディタ部分を黒背景・白文字に設定 */
     .editor {
         min-height: 150px;
         background-color: #000;
@@ -49,7 +47,6 @@
     .editor p {
         margin: 0 0 10px 0;
     }
-    
     .btn {
         display: block;
         width: 100%;
@@ -76,10 +73,10 @@
         margin-bottom: 15px;
     }
     .color-btn {
-        width: calc(25% - 8px); /* 8色なので1列4個に調整 */
+        width: calc(25% - 8px); 
         aspect-ratio: 1 / 1;
         border-radius: 50%;
-        border: 2px solid #666;
+        border: 2px solid #444;
         cursor: pointer;
         box-sizing: border-box;
         box-shadow: 0 2px 4px rgba(0,0px,0,0.3);
@@ -116,21 +113,25 @@
         { hex: '#f3cfb3' }
     ];
 
-    // パレットの生成
     const palette = document.getElementById('palette');
     colors.forEach(colorInfo => {
         const btn = document.createElement('div');
         btn.className = 'color-btn';
         btn.style.backgroundColor = colorInfo.hex;
         
-        // スマホでボタンをタップした際に、テキストの選択範囲が解除されないようにする
-        btn.onmousedown = (e) => e.preventDefault();
-        btn.ontouchstart = (e) => e.preventDefault();
-        btn.onclick = () => applyColor(colorInfo.hex);
+        // 【修正ポイント】タッチした瞬間に直接色付けを実行するように変更
+        const applyHandler = (e) => {
+            e.preventDefault(); // 選択範囲が消えるのを防ぐ
+            applyColor(colorInfo.hex);
+        };
+        
+        // PCのクリック用とスマホのタッチ用、両方に対応
+        btn.addEventListener('mousedown', applyHandler);
+        btn.addEventListener('touchstart', applyHandler, { passive: false });
+        
         palette.appendChild(btn);
     });
 
-    // 1. テキストをpタグで囲んで初期化
     function initEditor() {
         const rawText = document.getElementById('rawText').value;
         if (!rawText) return;
@@ -145,7 +146,6 @@
         updateHTML();
     }
 
-    // 2. 選択した文字に色をつける
     function applyColor(hexColor) {
         const selection = window.getSelection();
         if (!selection.rangeCount || selection.isCollapsed) {
@@ -153,27 +153,17 @@
             return;
         }
 
-        const range = selection.getRangeAt(0);
-        const span = document.createElement('span');
-        span.style.color = hexColor;
-
-        try {
-            // 選択範囲をspanで囲む
-            range.surroundContents(span);
-            updateHTML();
-        } catch(e) {
-            alert("複数行をまたぐ選択や、すでに色がついている部分をまたぐ選択はできません。\n1行の中で、色をつけたい文字だけを選択してください。");
-        }
+        // 【修正ポイント】ブラウザ標準の装飾機能（execCommand）を使用
+        // これにより、複数行にまたがる選択などでもエラーにならず綺麗に色がつきます
+        document.execCommand('foreColor', false, hexColor);
+        updateHTML();
     }
 
-    // エディタの内容が直接変更された時もHTMLを更新
     document.getElementById('editor').addEventListener('input', updateHTML);
 
-    // 3. HTML出力の更新処理
     function updateHTML() {
         let html = document.getElementById('editor').innerHTML;
         
-        // #HEX 形式（例: #00b050）に置換して整形
         html = html.replace(/color:\s*rgb\((\d+),\s*(\d+),\s*(\d+)\);?/gi, function(match, r, g, b) {
             function toHex(x) {
                 const hex = parseInt(x).toString(16);
@@ -185,7 +175,6 @@
         document.getElementById('outputHTML').value = html;
     }
 
-    // HTMLのコピー機能
     function copyHTML() {
         const output = document.getElementById('outputHTML');
         if (!output.value) {
